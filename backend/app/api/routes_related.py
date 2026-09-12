@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.db_models import StoryRelationshipRow, VideoRow, VideoRelationshipRow
+from app.learning.adaptive_ranker import derive_adaptive_weights
 from app.services.related_videos import rank_related_videos
 from app.services.semantic_retrieval import find_semantic_candidates
 
@@ -56,12 +57,14 @@ def related_videos(
             for relationship in relationships:
                 graph_relationships[relationship.to_story_id] = relationship.relationship_type
 
+        adaptive = derive_adaptive_weights(session)
         ranked = rank_related_videos(
             current,
             candidates,
             limit=limit,
             graph_relationships=graph_relationships,
             semantic_similarities=semantic_similarities,
+            weights=adaptive.values,
         )
 
         session.query(VideoRelationshipRow).filter(
@@ -96,6 +99,7 @@ def related_videos(
     return {
         "video_id": str(video_id),
         "count": len(ranked),
+        "adaptive_weights": adaptive.values,
         "candidates": [
             {
                 "video_id": str(item.video_id),
