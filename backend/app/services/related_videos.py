@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Mapping, Sequence
 from uuid import UUID
 
 from app.db_models import VideoRow
@@ -17,6 +18,18 @@ class RelatedVideoResult:
     relationship_type: str
     score: float
     features: dict[str, float]
+
+
+def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
+    """Return normalized cosine similarity in the range 0..1."""
+    if len(left) != len(right) or not left:
+        return 0.0
+    left_norm = math.sqrt(sum(value * value for value in left))
+    right_norm = math.sqrt(sum(value * value for value in right))
+    if left_norm == 0.0 or right_norm == 0.0:
+        return 0.0
+    cosine = sum(a * b for a, b in zip(left, right, strict=True)) / (left_norm * right_norm)
+    return max(0.0, min(1.0, (cosine + 1.0) / 2.0))
 
 
 def _tokens(value: str) -> set[str]:
