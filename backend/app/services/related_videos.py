@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from uuid import UUID
@@ -34,6 +35,16 @@ def _overlap(a: str, b: str) -> float:
     return len(left & right) / max(1, len(left | right))
 
 
+def cosine_similarity(left: list[float] | None, right: list[float] | None) -> float:
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    left_norm = math.sqrt(sum(value * value for value in left))
+    right_norm = math.sqrt(sum(value * value for value in right))
+    if left_norm == 0.0 or right_norm == 0.0:
+        return 0.0
+    return max(0.0, min(1.0, sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)))
+
+
 def _graph_signal(relationship_type: str | None) -> CandidateSignals:
     return CandidateSignals(
         same_story=1.0 if relationship_type == "SAME_STORY" else 0.0,
@@ -66,6 +77,7 @@ def rank_related_videos(
             f"{current.title} {current.description or ''}",
             f"{candidate.title} {candidate.description or ''}",
         )
+        embedding_similarity = cosine_similarity(current.embedding, candidate.embedding)
         graph_type = graph_relationships.get(candidate.story_id) if candidate.story_id else None
         graph_signals = _graph_signal(graph_type)
 
@@ -75,7 +87,7 @@ def rank_related_videos(
             same_event=max(same_story, graph_signals.same_event),
             chronological_continuity=chronology,
             reaction_chain=graph_signals.reaction_chain,
-            semantic_similarity=semantic_proxy,
+            semantic_similarity=max(semantic_proxy, embedding_similarity),
             same_topic_only=max(min(1.0, lexical), graph_signals.same_topic_only),
         )
         score = score_candidate(signals)
@@ -95,6 +107,8 @@ def rank_related_videos(
                     "same_story": signals.same_story,
                     "title_overlap": lexical,
                     "semantic_proxy": semantic_proxy,
+                    "embedding_similarity": embedding_similarity,
+                    "semantic_similarity": signals.semantic_similarity,
                     "chronological_continuity": chronology,
                     "graph_relationship": 1.0 if graph_type else 0.0,
                 },
