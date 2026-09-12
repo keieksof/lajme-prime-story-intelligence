@@ -24,8 +24,8 @@ def match_stories(current: StoryAnalysis, candidate: StoryAnalysis) -> StoryMatc
         people * 0.35
         + organizations * 0.15
         + topics * 0.20
-        + titles * 0.15
-        + (0.15 if same_canonical_key else 0.0)
+        + titles * 0.10
+        + (0.20 if same_canonical_key else 0.0)
     )
 
     reasons: list[str] = []
