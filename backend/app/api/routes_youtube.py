@@ -26,6 +26,7 @@ async def ingest(
         "imported": result.imported,
         "updated": result.updated,
         "transcripts_fetched": result.transcripts_fetched,
+        "embeddings_created": result.embeddings_created,
         "stories_created": result.stories_created,
         "stories_reused": result.stories_reused,
     }
