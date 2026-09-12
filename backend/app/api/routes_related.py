@@ -8,6 +8,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.db_models import StoryRelationshipRow, VideoRow, VideoRelationshipRow
 from app.services.related_videos import rank_related_videos
+from app.services.semantic_retrieval import find_semantic_candidates
 
 router = APIRouter(prefix="/related", tags=["related"])
 
@@ -22,14 +23,28 @@ def related_videos(
         if current is None:
             raise HTTPException(status_code=404, detail="Video not found")
 
-        candidates = list(
+        semantic_similarities = find_semantic_candidates(
+            session,
+            current,
+            limit=max(50, limit * 10),
+        )
+        semantic_ids = set(semantic_similarities)
+
+        fallback_candidates = list(
             session.scalars(
                 select(VideoRow)
-                .where(VideoRow.platform == "youtube", VideoRow.id != video_id)
+                .where(VideoRow.platform == current.platform, VideoRow.id != video_id)
                 .order_by(VideoRow.published_at.desc().nullslast())
                 .limit(500)
             )
         )
+        candidate_map = {candidate.id: candidate for candidate in fallback_candidates}
+        if semantic_ids:
+            semantic_rows = list(
+                session.scalars(select(VideoRow).where(VideoRow.id.in_(semantic_ids)))
+            )
+            candidate_map.update({candidate.id: candidate for candidate in semantic_rows})
+        candidates = list(candidate_map.values())
 
         graph_relationships: dict[UUID, str] = {}
         if current.story_id:
@@ -46,6 +61,7 @@ def related_videos(
             candidates,
             limit=limit,
             graph_relationships=graph_relationships,
+            semantic_similarities=semantic_similarities,
         )
 
         session.query(VideoRelationshipRow).filter(
