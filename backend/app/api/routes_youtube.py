@@ -1,7 +1,8 @@
 import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.db import SessionLocal
@@ -9,6 +10,11 @@ from app.db_models import VideoRow
 from app.services.youtube_ingestion import ingest_channel
 
 router = APIRouter(prefix="/youtube", tags=["youtube"])
+
+
+class IngestRequest(BaseModel):
+    channel: str | None = None
+    limit: int | None = None
 
 
 def _serialize_video(row: VideoRow) -> dict[str, Any]:
@@ -28,7 +34,16 @@ def _serialize_video(row: VideoRow) -> dict[str, Any]:
 async def ingest(
     channel: str = Query("@LajmePrime", min_length=1, description="YouTube channel ID or handle"),
     limit: int = Query(200, ge=1, le=1000),
+    payload: IngestRequest | None = Body(default=None),
 ) -> dict[str, Any]:
+    if payload is not None:
+        if payload.channel:
+            channel = payload.channel
+        if payload.limit is not None:
+            if payload.limit < 1 or payload.limit > 1000:
+                raise HTTPException(status_code=422, detail="limit must be between 1 and 1000")
+            limit = payload.limit
+
     api_key = os.getenv("YOUTUBE_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="YOUTUBE_API_KEY is not configured")
