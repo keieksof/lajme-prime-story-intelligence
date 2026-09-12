@@ -12,7 +12,7 @@ router = APIRouter(prefix="/youtube", tags=["youtube"])
 @router.post("/ingest")
 async def ingest(
     channel: str = Query("@LajmePrime", min_length=1, description="YouTube channel ID or handle"),
-    limit: int = Query(25, ge=1, le=200),
+    limit: int = Query(200, ge=1, le=1000),
 ) -> dict[str, int | str]:
     api_key = os.getenv("YOUTUBE_API_KEY")
     if not api_key:
