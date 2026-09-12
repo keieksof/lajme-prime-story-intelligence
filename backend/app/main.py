@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.routes_story import router as story_router
+from app.api.routes_youtube import router as youtube_router
 
 app = FastAPI(
     title="Lajme Prime Story Intelligence",
@@ -8,6 +9,7 @@ app = FastAPI(
 )
 
 app.include_router(story_router, prefix="/api")
+app.include_router(youtube_router, prefix="/api")
 
 
 @app.get("/health")
