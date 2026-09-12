@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,3 +43,16 @@ class VideoRow(Base):
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 
     story: Mapped[StoryRow | None] = relationship(back_populates="videos")
+
+
+class VideoRelationshipRow(Base):
+    __tablename__ = "video_relationships"
+    __table_args__ = (UniqueConstraint("current_video_id", "candidate_video_id"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    current_video_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("videos.id", ondelete="CASCADE"), nullable=False)
+    candidate_video_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("videos.id", ondelete="CASCADE"), nullable=False)
+    relationship_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    score: Mapped[float] = mapped_column(Numeric(8, 4), nullable=False)
+    ranking_features: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    selected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
