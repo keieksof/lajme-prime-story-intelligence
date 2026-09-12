@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -25,12 +26,12 @@ RELATION_WEIGHTS = {
 }
 
 
-def score_candidate(signals: CandidateSignals) -> float:
-    """Return an explainable baseline score for a related-video candidate.
-
-    Values are normalized to 0..1. The score intentionally rewards editorial
-    relationships more strongly than generic semantic similarity.
-    """
+def score_candidate(
+    signals: CandidateSignals,
+    weights: Mapping[str, float] | None = None,
+) -> float:
+    """Return an explainable baseline or adaptive score for a candidate."""
+    active_weights = weights or RELATION_WEIGHTS
     values = {
         "same_story": signals.same_story,
         "same_person": signals.same_person,
@@ -40,7 +41,7 @@ def score_candidate(signals: CandidateSignals) -> float:
         "semantic_similarity": signals.semantic_similarity,
         "same_topic_only": signals.same_topic_only,
     }
-    return sum(RELATION_WEIGHTS[key] * max(0.0, min(1.0, value)) for key, value in values.items())
+    return sum(active_weights[key] * max(0.0, min(1.0, value)) for key, value in values.items())
 
 
 def classify_relationship(signals: CandidateSignals) -> str:
