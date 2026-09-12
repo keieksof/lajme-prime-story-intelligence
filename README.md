@@ -31,6 +31,7 @@ The repository now contains:
 - Learning feedback baseline
 - GitHub Actions CI
 - Docker Compose PostgreSQL/pgvector development stack
+- Vercel deployment configuration for the frontend and FastAPI API
 
 ## Local development
 
