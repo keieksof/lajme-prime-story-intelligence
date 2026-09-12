@@ -13,7 +13,7 @@ import {
   Sparkles,
   TrendingUp,
   UploadCloud,
-  Youtube,
+  Video,
 } from 'lucide-react'
 import './styles.css'
 
@@ -28,7 +28,7 @@ type Stage = {
   status: StageStatus
 }
 
-type Video = {
+type VideoRow = {
   id: string
   title: string
   url: string
@@ -66,7 +66,7 @@ function App() {
   const [message, setMessage] = useState('Ready for a new story.')
   const [health, setHealth] = useState<'unknown' | 'online' | 'offline'>('unknown')
   const [selectedStage, setSelectedStage] = useState<StageId>('ingest')
-  const [videos, setVideos] = useState<Video[]>([])
+  const [videos, setVideos] = useState<VideoRow[]>([])
   const [selectedVideoId, setSelectedVideoId] = useState('')
   const [analysis, setAnalysis] = useState<Record<string, unknown> | null>(null)
   const [research, setResearch] = useState<Record<string, unknown> | null>(null)
@@ -81,7 +81,7 @@ function App() {
   }
 
   const loadRecent = async () => {
-    const data = await apiFetch<{ videos: Video[] }>('/youtube/recent?limit=50')
+    const data = await apiFetch<{ videos: VideoRow[] }>('/youtube/recent?limit=50')
     setVideos(data.videos)
     if (!selectedVideoId && data.videos[0]) setSelectedVideoId(data.videos[0].id)
     return data.videos
@@ -103,7 +103,7 @@ function App() {
     setStage('ingest', 'active')
     setMessage('Ingesting YouTube uploads...')
     try {
-      const result = await apiFetch<{ imported: number; updated: number; stories_created: number; stories_reused: number }>(
+      const result = await apiFetch<{ imported: number; updated: number }>(
         `/youtube/ingest?channel=${encodeURIComponent(channel)}&limit=${encodeURIComponent(limit)}`,
         { method: 'POST' },
       )
@@ -143,7 +143,7 @@ function App() {
     setMessage('Researching the selected story...')
     try {
       const claims = Array.isArray(analysis?.claims)
-        ? analysis.claims.map((claim) => (typeof claim === 'string' ? claim : JSON.stringify(claim)))
+        ? analysis.claims.map((claim: unknown) => (typeof claim === 'string' ? claim : JSON.stringify(claim)))
         : []
       const result = await apiFetch<Record<string, unknown>>('/research/story', {
         method: 'POST',
@@ -224,7 +224,7 @@ function App() {
           <div className="control-card">
             <div className="control-field wide">
               <label>YouTube channel</label>
-              <div className="input-wrap"><Youtube size={17} /><input value={channel} onChange={(event) => setChannel(event.target.value)} /></div>
+              <div className="input-wrap"><Video size={17} /><input value={channel} onChange={(event) => setChannel(event.target.value)} /></div>
             </div>
             <div className="control-field small">
               <label>Uploads</label>
@@ -247,7 +247,7 @@ function App() {
           </div>
 
           <div className="workflow-board">
-            {stages.map((stage, index) => {
+            {stages.map((stage: Stage, index: number) => {
               const Icon = stage.icon
               return (
                 <div key={stage.id} className="stage-row">
@@ -280,7 +280,7 @@ function App() {
                 <label>Current video</label>
                 <select value={selectedVideoId} onChange={(event) => setSelectedVideoId(event.target.value)}>
                   <option value="">Select a video</option>
-                  {videos.map((video) => <option key={video.id} value={video.id}>{video.title}</option>)}
+                  {videos.map((video: VideoRow) => <option key={video.id} value={video.id}>{video.title}</option>)}
                 </select>
               </div>
               <button className="primary-btn stage-action" disabled={selectedStage !== 'ingest' && !currentVideo && selectedStage !== 'learning'} onClick={handleStageAction}>
