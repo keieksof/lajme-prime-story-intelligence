@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.db_models import VideoRow, VideoRelationshipRow
+from app.db_models import StoryRelationshipRow, VideoRow, VideoRelationshipRow
 from app.services.related_videos import rank_related_videos
 
 router = APIRouter(prefix="/related", tags=["related"])
@@ -30,7 +30,23 @@ def related_videos(
                 .limit(500)
             )
         )
-        ranked = rank_related_videos(current, candidates, limit=limit)
+
+        graph_relationships: dict[UUID, str] = {}
+        if current.story_id:
+            relationships = session.scalars(
+                select(StoryRelationshipRow).where(
+                    StoryRelationshipRow.from_story_id == current.story_id,
+                )
+            ).all()
+            for relationship in relationships:
+                graph_relationships[relationship.to_story_id] = relationship.relationship_type
+
+        ranked = rank_related_videos(
+            current,
+            candidates,
+            limit=limit,
+            graph_relationships=graph_relationships,
+        )
 
         session.query(VideoRelationshipRow).filter(
             VideoRelationshipRow.current_video_id == video_id
