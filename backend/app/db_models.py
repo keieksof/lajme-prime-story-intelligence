@@ -110,6 +110,7 @@ class LearningSignalRow(Base):
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     publication_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("publications.id", ondelete="SET NULL"))
+    performance_metric_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("performance_metrics.id", ondelete="SET NULL"))
     signal_type: Mapped[str] = mapped_column(String(100), nullable=False)
     feature_key: Mapped[str] = mapped_column(String(255), nullable=False)
     feature_value: Mapped[Any | None] = mapped_column(JSON)
