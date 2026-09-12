@@ -50,6 +50,7 @@ def recent_videos(limit: int = Query(25, ge=1, le=100)) -> dict[str, list[dict[s
                 "external_id": row.external_id,
                 "title": row.title,
                 "url": row.url,
+                "thumbnail_url": f"https://i.ytimg.com/vi/{row.external_id}/hqdefault.jpg" if row.external_id else None,
                 "description": row.description,
                 "published_at": row.published_at.isoformat() if row.published_at else None,
                 "story_id": str(row.story_id) if row.story_id else None,
