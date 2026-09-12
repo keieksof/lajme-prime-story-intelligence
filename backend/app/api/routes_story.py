@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, HttpUrl
 
 from app.db import SessionLocal
+from app.models.domain import StoryAnalysis
 from app.repositories.story_repository import StoryRepository
 from app.services.story_graph import StoryGraphService, serialize_graph_result
 from app.story_engine.analyzer import HeuristicStoryAnalyzer
@@ -35,6 +37,14 @@ def _response_from_result(result: Any) -> dict[str, Any]:
     return response
 
 
+def _analysis_from_result(result: Any) -> StoryAnalysis:
+    payload = dict(result.analysis)
+    occurred_at = payload.get("occurred_at")
+    if isinstance(occurred_at, str) and occurred_at:
+        payload["occurred_at"] = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
+    return StoryAnalysis(**payload)
+
+
 @router.post("/analyze")
 def analyze_story(request: AnalyzeStoryRequest) -> dict[str, Any]:
     result = _build_pipeline().process(
@@ -52,9 +62,7 @@ def analyze_and_link_story(request: AnalyzeStoryRequest) -> dict[str, Any]:
         text=request.text,
         source_url=str(request.source_url) if request.source_url else None,
     )
-    from app.models.domain import StoryAnalysis
-
-    analysis = StoryAnalysis(**result.analysis)
+    analysis = _analysis_from_result(result)
     with SessionLocal() as session:
         graph_result = StoryGraphService(StoryRepository(session)).ingest(analysis)
         session.commit()
