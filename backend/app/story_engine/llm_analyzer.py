@@ -22,6 +22,42 @@ Do not decide virality or write social copy here.
 """.strip()
 
 
+ANALYSIS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "canonical_story_key": {"type": "string"},
+        "story_title": {"type": "string"},
+        "summary": {"type": "string"},
+        "category": {"type": ["string", "null"]},
+        "people": {"type": "array", "items": {"type": "string"}},
+        "organizations": {"type": "array", "items": {"type": "string"}},
+        "topics": {"type": "array", "items": {"type": "string"}},
+        "events": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": True},
+        },
+        "claims": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": True},
+        },
+        "occurred_at": {"type": ["string", "null"]},
+    },
+    "required": [
+        "canonical_story_key",
+        "story_title",
+        "summary",
+        "category",
+        "people",
+        "organizations",
+        "topics",
+        "events",
+        "claims",
+        "occurred_at",
+    ],
+}
+
+
 class LLMStoryAnalyzer:
     def __init__(
         self,
@@ -29,7 +65,7 @@ class LLMStoryAnalyzer:
         model: str | None = None,
     ) -> None:
         self.client = client or OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.model = model or os.getenv("STORY_INTELLIGENCE_MODEL", "gpt-5.6-mini")
+        self.model = model or os.getenv("STORY_INTELLIGENCE_MODEL", "gpt-5.6-luna")
 
     def analyze(
         self,
@@ -42,17 +78,20 @@ class LLMStoryAnalyzer:
             "text": text,
             "source_url": source_url,
         }
-        response = self.client.chat.completions.create(
+        response = self.client.responses.create(
             model=self.model,
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-            ],
+            instructions=SYSTEM_PROMPT,
+            input=json.dumps(payload, ensure_ascii=False),
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "story_analysis",
+                    "strict": True,
+                    "schema": ANALYSIS_SCHEMA,
+                }
+            },
         )
-        content = response.choices[0].message.content or "{}"
-        data = json.loads(content)
+        data = json.loads(response.output_text or "{}")
         return self._to_analysis(data, title=title, text=text)
 
     @staticmethod
