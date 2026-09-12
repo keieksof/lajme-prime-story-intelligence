@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -41,6 +42,7 @@ class VideoRow(Base):
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
     transcript: Mapped[str | None] = mapped_column(Text)
     story_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("stories.id", ondelete="SET NULL"))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 
     story: Mapped[StoryRow | None] = relationship(back_populates="videos")
