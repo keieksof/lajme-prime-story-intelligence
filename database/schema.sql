@@ -57,6 +57,46 @@ CREATE TABLE IF NOT EXISTS claims (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS research_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    story_id UUID REFERENCES stories(id) ON DELETE SET NULL,
+    query TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model TEXT,
+    status TEXT NOT NULL DEFAULT 'completed',
+    limitations JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS research_sources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    report_id UUID NOT NULL REFERENCES research_reports(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    publisher TEXT,
+    published_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(report_id, url)
+);
+
+CREATE TABLE IF NOT EXISTS fact_check_findings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    report_id UUID NOT NULL REFERENCES research_reports(id) ON DELETE CASCADE,
+    claim TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    confidence NUMERIC(5,4) NOT NULL,
+    explanation TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS fact_check_evidence (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    finding_id UUID NOT NULL REFERENCES fact_check_findings(id) ON DELETE CASCADE,
+    source_id UUID NOT NULL REFERENCES research_sources(id) ON DELETE CASCADE,
+    UNIQUE(finding_id, source_id)
+);
+
 CREATE TABLE IF NOT EXISTS videos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     platform TEXT NOT NULL,
@@ -141,6 +181,9 @@ CREATE TABLE IF NOT EXISTS learning_signals (
 
 CREATE INDEX IF NOT EXISTS idx_events_story_time ON events(story_id, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_claims_story ON claims(story_id);
+CREATE INDEX IF NOT EXISTS idx_research_reports_story ON research_reports(story_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_research_sources_report ON research_sources(report_id);
+CREATE INDEX IF NOT EXISTS idx_fact_check_report ON fact_check_findings(report_id);
 CREATE INDEX IF NOT EXISTS idx_videos_story ON videos(story_id);
 CREATE INDEX IF NOT EXISTS idx_videos_published_at ON videos(published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_story_relationships_from ON story_relationships(from_story_id);
