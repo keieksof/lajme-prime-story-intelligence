@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.db_models import StoryRelationshipRow, StoryRow
 from app.models.domain import StoryAnalysis
 from app.story_engine.story_matcher import StoryMatch, match_stories
+from app.story_engine.story_resolution import resolve_story
 
 
 class StoryRepository:
@@ -16,32 +17,8 @@ class StoryRepository:
         self.session = session
 
     def upsert_with_status(self, analysis: StoryAnalysis) -> tuple[StoryRow, bool]:
-        row = self.session.scalar(
-            select(StoryRow).where(StoryRow.canonical_key == analysis.canonical_key)
-        )
-        now = datetime.now(timezone.utc)
-        payload = _analysis_metadata(analysis)
-        created = row is None
-
-        if row is None:
-            row = StoryRow(
-                canonical_key=analysis.canonical_key,
-                title=analysis.title,
-                summary=analysis.summary,
-                category=analysis.category,
-                analysis_json=payload,
-                first_seen_at=analysis.occurred_at or now,
-                last_updated_at=analysis.occurred_at or now,
-            )
-            self.session.add(row)
-        else:
-            row.title = analysis.title
-            row.summary = analysis.summary
-            row.category = analysis.category
-            row.analysis_json = payload
-            row.last_updated_at = analysis.occurred_at or now
-        self.session.flush()
-        return row, created
+        resolution = resolve_story(self.session, analysis)
+        return resolution.story, resolution.created
 
     def upsert(self, analysis: StoryAnalysis) -> StoryRow:
         row, _ = self.upsert_with_status(analysis)
@@ -119,17 +96,6 @@ class StoryGraphCandidate:
         self.id = id
         self.canonical_key = canonical_key
         self.analysis = analysis
-
-
-def _analysis_metadata(analysis: StoryAnalysis) -> dict:
-    return {
-        "people": analysis.people,
-        "organizations": analysis.organizations,
-        "topics": analysis.topics,
-        "events": analysis.events,
-        "claims": analysis.claims,
-        "occurred_at": analysis.occurred_at.isoformat() if analysis.occurred_at else None,
-    }
 
 
 def _analysis_from_row(row: StoryRow) -> StoryAnalysis | None:
