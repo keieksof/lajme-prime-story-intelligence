@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
 from app.db import SessionLocal
 from app.ingestion.transcript import TranscriptFetcher
 from app.ingestion.youtube import YouTubeClient
+from app.models.domain import StoryAnalysis
 from app.repositories.story_repository import StoryRepository
 from app.repositories.youtube_repository import YouTubeRepository
 from app.story_engine.analyzer import HeuristicStoryAnalyzer
@@ -93,8 +96,14 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
     )
 
 
-def _analysis_from_dict(value: dict) -> object:
-    from app.models.domain import StoryAnalysis
+def _analysis_from_dict(value: dict[str, Any]) -> StoryAnalysis:
+    occurred_at = value.get("occurred_at")
+    parsed_occurred_at = None
+    if isinstance(occurred_at, str) and occurred_at.strip():
+        try:
+            parsed_occurred_at = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
+        except ValueError:
+            parsed_occurred_at = None
 
     return StoryAnalysis(
         canonical_key=str(value["canonical_key"]),
@@ -106,5 +115,5 @@ def _analysis_from_dict(value: dict) -> object:
         topics=[str(item) for item in value.get("topics", [])],
         events=[item for item in value.get("events", []) if isinstance(item, dict)],
         claims=[item for item in value.get("claims", []) if isinstance(item, dict)],
-        occurred_at=None,
+        occurred_at=parsed_occurred_at,
     )
