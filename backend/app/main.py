@@ -39,5 +39,6 @@ app.include_router(performance_router, prefix="/api")
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "lajme-prime-story-intelligence"}
