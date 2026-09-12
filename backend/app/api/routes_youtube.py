@@ -21,4 +21,9 @@ async def ingest(
         result = await ingest_channel(api_key=api_key, channel=channel, limit=limit)
     except (RuntimeError, LookupError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"channel": channel, "imported": result.imported, "updated": result.updated}
+    return {
+        "channel": channel,
+        "imported": result.imported,
+        "updated": result.updated,
+        "transcripts_fetched": result.transcripts_fetched,
+    }
