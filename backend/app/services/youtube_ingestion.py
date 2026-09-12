@@ -18,6 +18,8 @@ class IngestionResult:
     imported: int
     updated: int
     transcripts_fetched: int
+    stories_created: int
+    stories_reused: int
 
 
 def _build_analyzer() -> HeuristicStoryAnalyzer | LLMStoryAnalyzer:
@@ -36,6 +38,8 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
     imported = 0
     updated = 0
     transcripts_fetched = 0
+    stories_created = 0
+    stories_reused = 0
 
     with SessionLocal() as session:
         video_repo = YouTubeRepository(session)
@@ -61,7 +65,14 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
                 text=analysis_text,
                 source_url=video.url,
             ).analysis
-            story = story_repo.upsert(analysis)
+            story, story_created = story_repo.upsert_with_status(
+                _analysis_from_dict(analysis)
+            )
+            if story_created:
+                stories_created += 1
+            else:
+                stories_reused += 1
+
             row = video_repo.upsert_video(video, story_id=story.id)
             if transcript:
                 row.transcript = transcript
@@ -77,4 +88,23 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
         imported=imported,
         updated=updated,
         transcripts_fetched=transcripts_fetched,
+        stories_created=stories_created,
+        stories_reused=stories_reused,
+    )
+
+
+def _analysis_from_dict(value: dict) -> object:
+    from app.models.domain import StoryAnalysis
+
+    return StoryAnalysis(
+        canonical_key=str(value["canonical_key"]),
+        title=str(value["title"]),
+        summary=str(value["summary"]),
+        category=value.get("category"),
+        people=[str(item) for item in value.get("people", [])],
+        organizations=[str(item) for item in value.get("organizations", [])],
+        topics=[str(item) for item in value.get("topics", [])],
+        events=[item for item in value.get("events", []) if isinstance(item, dict)],
+        claims=[item for item in value.get("claims", []) if isinstance(item, dict)],
+        occurred_at=None,
     )
