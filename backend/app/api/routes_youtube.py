@@ -1,9 +1,11 @@
-from __future__ import annotations
-
 import os
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import select
 
+from app.db import SessionLocal
+from app.db_models import VideoRow
 from app.services.youtube_ingestion import ingest_channel
 
 router = APIRouter(prefix="/youtube", tags=["youtube"])
@@ -29,4 +31,29 @@ async def ingest(
         "embeddings_created": result.embeddings_created,
         "stories_created": result.stories_created,
         "stories_reused": result.stories_reused,
+    }
+
+
+@router.get("/recent")
+def recent_videos(limit: int = Query(25, ge=1, le=100)) -> dict[str, list[dict[str, Any]]]:
+    with SessionLocal() as session:
+        rows = session.scalars(
+            select(VideoRow)
+            .where(VideoRow.platform == "youtube")
+            .order_by(VideoRow.published_at.desc().nullslast())
+            .limit(limit)
+        ).all()
+    return {
+        "videos": [
+            {
+                "id": str(row.id),
+                "external_id": row.external_id,
+                "title": row.title,
+                "url": row.url,
+                "description": row.description,
+                "published_at": row.published_at.isoformat() if row.published_at else None,
+                "story_id": str(row.story_id) if row.story_id else None,
+            }
+            for row in rows
+        ]
     }
