@@ -34,8 +34,25 @@ def _overlap(a: str, b: str) -> float:
     return len(left & right) / max(1, len(left | right))
 
 
-def rank_related_videos(current: VideoRow, candidates: list[VideoRow], limit: int = 5) -> list[RelatedVideoResult]:
+def _graph_signal(relationship_type: str | None) -> CandidateSignals:
+    return CandidateSignals(
+        same_story=1.0 if relationship_type == "SAME_STORY" else 0.0,
+        same_event=1.0 if relationship_type in {"SAME_STORY", "FOLLOW_UP", "PREVIOUS_DEVELOPMENT"} else 0.0,
+        reaction_chain=1.0 if relationship_type == "REACTION_CHAIN" else 0.0,
+        same_person=1.0 if relationship_type == "SAME_PERSON_NEW_DEVELOPMENT" else 0.0,
+        same_topic_only=1.0 if relationship_type == "SAME_TOPIC_NOT_SAME_STORY" else 0.0,
+    )
+
+
+def rank_related_videos(
+    current: VideoRow,
+    candidates: list[VideoRow],
+    limit: int = 5,
+    graph_relationships: dict[UUID, str] | None = None,
+) -> list[RelatedVideoResult]:
     results: list[RelatedVideoResult] = []
+    graph_relationships = graph_relationships or {}
+
     for candidate in candidates:
         if candidate.id == current.id or candidate.published_at is None or current.published_at is None:
             continue
@@ -49,21 +66,22 @@ def rank_related_videos(current: VideoRow, candidates: list[VideoRow], limit: in
             f"{current.title} {current.description or ''}",
             f"{candidate.title} {candidate.description or ''}",
         )
+        graph_type = graph_relationships.get(candidate.story_id) if candidate.story_id else None
+        graph_signals = _graph_signal(graph_type)
 
         signals = CandidateSignals(
-            same_story=same_story,
-            same_person=min(1.0, lexical * 1.2),
-            same_event=same_story,
+            same_story=max(same_story, graph_signals.same_story),
+            same_person=max(min(1.0, lexical * 1.2), graph_signals.same_person),
+            same_event=max(same_story, graph_signals.same_event),
             chronological_continuity=chronology,
-            reaction_chain=0.0,
+            reaction_chain=graph_signals.reaction_chain,
             semantic_similarity=semantic_proxy,
-            same_topic_only=min(1.0, lexical),
+            same_topic_only=max(min(1.0, lexical), graph_signals.same_topic_only),
         )
         score = score_candidate(signals)
-        relationship = classify_relationship(signals)
+        relationship = graph_type or classify_relationship(signals)
 
-        # Do not surface weak generic matches as editorially related.
-        if same_story == 0.0 and score < 25:
+        if signals.same_story == 0.0 and score < 25:
             continue
 
         results.append(
@@ -74,10 +92,11 @@ def rank_related_videos(current: VideoRow, candidates: list[VideoRow], limit: in
                 relationship_type=relationship,
                 score=round(score, 4),
                 features={
-                    "same_story": same_story,
+                    "same_story": signals.same_story,
                     "title_overlap": lexical,
                     "semantic_proxy": semantic_proxy,
                     "chronological_continuity": chronology,
+                    "graph_relationship": 1.0 if graph_type else 0.0,
                 },
             )
         )
