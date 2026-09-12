@@ -71,3 +71,48 @@ class VideoRelationshipRow(Base):
     score: Mapped[float] = mapped_column(Numeric(8, 4), nullable=False)
     ranking_features: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     selected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+class PublicationRow(Base):
+    __tablename__ = "publications"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    video_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("videos.id", ondelete="CASCADE"), nullable=False)
+    platform: Mapped[str] = mapped_column(String(50), nullable=False)
+    external_url: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    related_video_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("videos.id", ondelete="SET NULL"))
+    editorial_version: Mapped[str | None] = mapped_column(String(100))
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class PerformanceMetricRow(Base):
+    __tablename__ = "performance_metrics"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    publication_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("publications.id", ondelete="CASCADE"), nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
+    views: Mapped[int | None] = mapped_column(Integer)
+    likes: Mapped[int | None] = mapped_column(Integer)
+    comments: Mapped[int | None] = mapped_column(Integer)
+    shares: Mapped[int | None] = mapped_column(Integer)
+    impressions: Mapped[int | None] = mapped_column(Integer)
+    ctr: Mapped[float | None] = mapped_column(Numeric(8, 5))
+    average_view_duration_seconds: Mapped[float | None] = mapped_column(Numeric(12, 4))
+    average_percentage_viewed: Mapped[float | None] = mapped_column(Numeric(8, 5))
+    swipe_away_rate: Mapped[float | None] = mapped_column(Numeric(8, 5))
+    retention: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    raw_metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class LearningSignalRow(Base):
+    __tablename__ = "learning_signals"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    publication_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("publications.id", ondelete="SET NULL"))
+    signal_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    feature_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    feature_value: Mapped[Any | None] = mapped_column(JSON)
+    outcome_value: Mapped[float | None] = mapped_column(Numeric(10, 5))
+    confidence: Mapped[float | None] = mapped_column(Numeric(5, 4))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
