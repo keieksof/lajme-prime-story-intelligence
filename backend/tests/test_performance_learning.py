@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from app.services.performance_learning import PerformanceSnapshot, performance_outcome
 
 
@@ -41,4 +39,3 @@ def test_snapshot_keeps_optional_json_payloads_initialized() -> None:
     snapshot = PerformanceSnapshot()
     assert snapshot.retention == {}
     assert snapshot.raw_metrics == {}
-    assert SimpleNamespace is not None
