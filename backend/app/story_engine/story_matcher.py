@@ -18,17 +18,18 @@ def match_stories(current: StoryAnalysis, candidate: StoryAnalysis) -> StoryMatc
     organizations = _overlap(current.organizations, candidate.organizations)
     topics = _overlap(current.topics, candidate.topics)
     titles = _token_overlap(current.title, candidate.title)
+    same_canonical_key = current.canonical_key == candidate.canonical_key
 
     score = (
         people * 0.35
         + organizations * 0.15
         + topics * 0.20
         + titles * 0.15
-        + (0.15 if current.canonical_key == candidate.canonical_key else 0.0)
+        + (0.15 if same_canonical_key else 0.0)
     )
 
     reasons: list[str] = []
-    if current.canonical_key == candidate.canonical_key:
+    if same_canonical_key:
         reasons.append("same canonical story key")
     if people:
         reasons.append(f"shared people: {people:.2f}")
@@ -39,7 +40,9 @@ def match_stories(current: StoryAnalysis, candidate: StoryAnalysis) -> StoryMatc
     if titles:
         reasons.append(f"title overlap: {titles:.2f}")
 
-    if score >= 0.75:
+    if same_canonical_key:
+        relation = "SAME_STORY"
+    elif score >= 0.75:
         relation = "SAME_STORY"
     elif people >= 0.75 and topics >= 0.35:
         relation = "SAME_PERSON_NEW_DEVELOPMENT"
