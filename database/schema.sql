@@ -11,11 +11,14 @@ CREATE TABLE IF NOT EXISTS stories (
     summary TEXT,
     category TEXT,
     status TEXT NOT NULL DEFAULT 'active',
+    analysis_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     first_seen_at TIMESTAMPTZ,
     last_updated_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS analysis_json JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS people (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
