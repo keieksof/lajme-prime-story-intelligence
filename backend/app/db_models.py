@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,7 +14,7 @@ from app.db import Base
 class StoryRow(Base):
     __tablename__ = "stories"
 
-    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     canonical_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
@@ -30,7 +30,7 @@ class VideoRow(Base):
     __tablename__ = "videos"
     __table_args__ = (UniqueConstraint("platform", "external_id"),)
 
-    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     platform: Mapped[str] = mapped_column(String(50), nullable=False)
     external_id: Mapped[str] = mapped_column(String(255), nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
