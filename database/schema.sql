@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS performance_metrics (
 CREATE TABLE IF NOT EXISTS learning_signals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     publication_id UUID REFERENCES publications(id) ON DELETE SET NULL,
+    performance_metric_id UUID REFERENCES performance_metrics(id) ON DELETE SET NULL,
     signal_type TEXT NOT NULL,
     feature_key TEXT NOT NULL,
     feature_value JSONB,
@@ -183,6 +184,8 @@ CREATE TABLE IF NOT EXISTS learning_signals (
     confidence NUMERIC(5,4),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE learning_signals ADD COLUMN IF NOT EXISTS performance_metric_id UUID REFERENCES performance_metrics(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_events_story_time ON events(story_id, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_claims_story ON claims(story_id);
