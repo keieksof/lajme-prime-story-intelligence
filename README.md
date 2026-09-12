@@ -17,7 +17,50 @@ The system builds a persistent understanding of Lajme Prime's stories and publis
 
 `New story -> Story Intelligence -> Story Graph -> Related Video Ranking -> Publish -> Performance Data -> Learning -> Better next decision`
 
-## Initial architecture
+## Current build
+
+The repository now contains:
+
+- FastAPI backend
+- PostgreSQL + pgvector schema
+- SQLAlchemy persistence models and repositories
+- YouTube channel ingestion through the YouTube Data API
+- YouTube transcript fetching when available
+- Story analysis pipeline
+- Explainable Related Video baseline ranker
+- Learning feedback baseline
+- GitHub Actions CI
+- Docker Compose PostgreSQL/pgvector development stack
+
+## Local development
+
+1. Copy `.env.example` to `.env` and set `YOUTUBE_API_KEY`.
+2. Start PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+3. Install backend dependencies:
+
+```bash
+cd backend
+python -m pip install -r requirements.txt
+```
+
+4. Start the API:
+
+```bash
+PYTHONPATH=. uvicorn app.main:app --reload
+```
+
+5. Ingest the latest Lajme Prime uploads:
+
+```bash
+curl -X POST "http://localhost:8000/api/youtube/ingest?channel=@LajmePrime&limit=25"
+```
+
+## Architecture
 
 - Backend: Python / FastAPI
 - Database: PostgreSQL + pgvector
