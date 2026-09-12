@@ -10,6 +10,7 @@ from app.db_models import VideoRow
 
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSION = 1536
+MAX_EMBEDDING_TEXT_CHARS = 24000
 
 
 def video_embedding_text(video: VideoRow) -> str:
@@ -18,7 +19,8 @@ def video_embedding_text(video: VideoRow) -> str:
         parts.append(video.description.strip())
     if video.transcript:
         parts.append(video.transcript.strip())
-    return "\n\n".join(part for part in parts if part)
+    text = "\n\n".join(part for part in parts if part)
+    return text[:MAX_EMBEDDING_TEXT_CHARS]
 
 
 class OpenAIEmbeddingService:
@@ -40,7 +42,7 @@ class OpenAIEmbeddingService:
         )
         return [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
 
-    def embed_videos(self, videos: Sequence[VideoRow], *, batch_size: int = 100) -> int:
+    def embed_videos(self, videos: Sequence[VideoRow], *, batch_size: int = 50) -> int:
         updated = 0
         for start in range(0, len(videos), batch_size):
             batch = list(videos[start : start + batch_size])
@@ -57,7 +59,7 @@ def embed_missing_videos(
     videos: Iterable[VideoRow],
     service: OpenAIEmbeddingService | None = None,
     *,
-    batch_size: int = 100,
+    batch_size: int = 50,
 ) -> int:
     pending = [video for video in videos if video.embedding is None and video_embedding_text(video)]
     if not pending:
