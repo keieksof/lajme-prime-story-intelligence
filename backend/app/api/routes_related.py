@@ -96,19 +96,21 @@ def related_videos(
 
         session.commit()
 
+    candidates_payload = [
+        {
+            "video_id": str(item.video_id),
+            "title": item.title,
+            "url": item.url,
+            "relationship_type": item.relationship_type,
+            "score": item.score,
+            "features": item.features,
+        }
+        for item in ranked
+    ]
     return {
         "video_id": str(video_id),
         "count": len(ranked),
         "adaptive_weights": adaptive.values,
-        "candidates": [
-            {
-                "video_id": str(item.video_id),
-                "title": item.title,
-                "url": item.url,
-                "relationship_type": item.relationship_type,
-                "score": item.score,
-                "features": item.features,
-            }
-            for item in ranked
-        ],
+        "candidates": candidates_payload,
+        "items": candidates_payload,
     }
