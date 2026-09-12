@@ -35,11 +35,36 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
         "topics": {"type": "array", "items": {"type": "string"}},
         "events": {
             "type": "array",
-            "items": {"type": "object", "additionalProperties": True},
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "title": {"type": "string"},
+                    "type": {"type": "string"},
+                    "description": {"type": ["string", "null"]},
+                    "occurred_at": {"type": ["string", "null"]},
+                },
+                "required": ["title", "type", "description", "occurred_at"],
+            },
         },
         "claims": {
             "type": "array",
-            "items": {"type": "object", "additionalProperties": True},
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "claim": {"type": "string"},
+                    "claim_type": {"type": "string"},
+                    "verification_status": {"type": "string"},
+                    "evidence_needed": {"type": ["string", "null"]},
+                },
+                "required": [
+                    "claim",
+                    "claim_type",
+                    "verification_status",
+                    "evidence_needed",
+                ],
+            },
         },
         "occurred_at": {"type": ["string", "null"]},
     },
