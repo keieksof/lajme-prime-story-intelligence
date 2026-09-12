@@ -21,7 +21,7 @@ class RelatedVideoResult:
 
 
 def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
-    """Return normalized cosine similarity in the range 0..1."""
+    """Return cosine similarity normalized to the range 0..1."""
     if len(left) != len(right) or not left:
         return 0.0
     left_norm = math.sqrt(sum(value * value for value in left))
@@ -29,7 +29,7 @@ def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
     if left_norm == 0.0 or right_norm == 0.0:
         return 0.0
     cosine = sum(a * b for a, b in zip(left, right, strict=True)) / (left_norm * right_norm)
-    return max(0.0, min(1.0, (cosine + 1.0) / 2.0))
+    return max(0.0, min(1.0, cosine))
 
 
 def _tokens(value: str) -> set[str]:
