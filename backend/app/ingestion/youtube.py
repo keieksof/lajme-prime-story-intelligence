@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -106,17 +106,18 @@ class YouTubeClient:
                 for item in response.json().get("items", []):
                     snippet = item.get("snippet", {})
                     published = snippet.get("publishedAt")
+                    published_at = datetime.fromisoformat(published.replace("Z", "+00:00")) if published else None
                     videos.append(
                         YouTubeVideo(
                             external_id=item["id"],
                             url=f"https://www.youtube.com/watch?v={item['id']}",
                             title=snippet.get("title", "").strip(),
                             description=snippet.get("description", "").strip(),
-                            published_at=datetime.fromisoformat(published.replace("Z", "+00:00")) if published else None,
+                            published_at=published_at,
                             duration_seconds=_iso_duration_to_seconds(item.get("contentDetails", {}).get("duration")),
                             channel_id=snippet.get("channelId", channel_id),
                             raw=item,
                         )
                     )
-        videos.sort(key=lambda video: video.published_at or datetime.min.replace(tzinfo=None), reverse=True)
+        videos.sort(key=lambda video: video.published_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
         return videos[:limit]
