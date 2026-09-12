@@ -5,8 +5,8 @@ import {
   BrainCircuit,
   Check,
   CircleHelp,
-  CircleUserRound,
   Database,
+  FileCheck2,
   GitBranch,
   Home,
   Link2,
@@ -23,12 +23,12 @@ import './styles.css'
 
 type StageStatus = 'idle' | 'active' | 'done' | 'error'
 type StageId = 'ingest' | 'analyze' | 'research' | 'graph' | 'related' | 'performance' | 'learning'
+type AnalysisTab = 'summary' | 'claims' | 'entities' | 'emotion'
 
 type Stage = {
   id: StageId
   title: string
   subtitle: string
-  short: string
   icon: typeof Activity
   status: StageStatus
 }
@@ -51,13 +51,13 @@ type RelatedItem = Record<string, unknown> & {
 }
 
 const stages: Stage[] = [
-  { id: 'ingest', title: 'Ingest', subtitle: 'Nga YouTube', short: 'YouTube', icon: UploadCloud, status: 'idle' },
-  { id: 'analyze', title: 'Story Intelligence', subtitle: 'Analizë AI', short: 'AI', icon: BrainCircuit, status: 'idle' },
-  { id: 'research', title: 'Research & Fact-check', subtitle: 'Kontekst & Fakte', short: 'Research', icon: Search, status: 'idle' },
-  { id: 'graph', title: 'Story Graph', subtitle: 'Lidhje temash', short: 'Graph', icon: Network, status: 'idle' },
-  { id: 'related', title: 'Related Videos', subtitle: 'Sugjerime inteligjente', short: 'Related', icon: Link2, status: 'idle' },
-  { id: 'performance', title: 'Performance', subtitle: 'Analiza performance', short: 'Metrics', icon: BarChart3, status: 'idle' },
-  { id: 'learning', title: 'Learning', subtitle: 'Përshtatje automatike', short: 'Learning', icon: Sparkles, status: 'idle' },
+  { id: 'ingest', title: 'Ingest', subtitle: 'Nga YouTube', icon: UploadCloud, status: 'idle' },
+  { id: 'analyze', title: 'Story Intelligence', subtitle: 'Analizë AI', icon: BrainCircuit, status: 'idle' },
+  { id: 'research', title: 'Research & Fact-check', subtitle: 'Kontekst & Fakte', icon: Search, status: 'idle' },
+  { id: 'graph', title: 'Story Graph', subtitle: 'Lidhje temash', icon: Network, status: 'idle' },
+  { id: 'related', title: 'Related Videos', subtitle: 'Sugjerime inteligjente', icon: Link2, status: 'idle' },
+  { id: 'performance', title: 'Performance', subtitle: 'Analiza performance', icon: BarChart3, status: 'idle' },
+  { id: 'learning', title: 'Learning', subtitle: 'Përshtatje automatike', icon: Sparkles, status: 'idle' },
 ]
 
 const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
@@ -83,6 +83,15 @@ function thumbnailClass(index: number) {
   return `thumb thumb-${(index % 6) + 1}`
 }
 
+function arrayValue(value: unknown) {
+  return Array.isArray(value) ? value : []
+}
+
+function displayValue(value: unknown, fallback = 'Në pritje') {
+  if (value === null || value === undefined || value === '') return fallback
+  return typeof value === 'string' ? value : JSON.stringify(value)
+}
+
 function App() {
   const [stageState, setStageState] = useState<Record<StageId, StageStatus>>(
     Object.fromEntries(stages.map((stage) => [stage.id, stage.status])) as Record<StageId, StageStatus>,
@@ -94,6 +103,7 @@ function App() {
   const [videos, setVideos] = useState<VideoRow[]>([])
   const [selectedVideoId, setSelectedVideoId] = useState('')
   const [selectedStage, setSelectedStage] = useState<StageId>('analyze')
+  const [analysisTab, setAnalysisTab] = useState<AnalysisTab>('summary')
   const [analysis, setAnalysis] = useState<Record<string, unknown> | null>(null)
   const [research, setResearch] = useState<Record<string, unknown> | null>(null)
   const [related, setRelated] = useState<RelatedItem[]>([])
@@ -102,6 +112,11 @@ function App() {
 
   const currentVideo = videos.find((video) => video.id === selectedVideoId)
   const selected = useMemo(() => stages.find((stage) => stage.id === selectedStage) ?? stages[0], [selectedStage])
+  const claims = arrayValue(analysis?.claims)
+  const people = arrayValue(analysis?.people)
+  const organizations = arrayValue(analysis?.organizations)
+  const topics = arrayValue(analysis?.topics)
+  const events = arrayValue(analysis?.events)
 
   const patchStage = (id: StageId, status: StageStatus) => {
     setStageState((current) => ({ ...current, [id]: status }))
@@ -168,6 +183,7 @@ function App() {
       setAnalysis(result)
       patchStage('analyze', 'done')
       if (result.graph) patchStage('graph', 'done')
+      setSelectedStage('analyze')
       setMessage('Story Intelligence u përfundua dhe historia u lidh me graph-in.')
     } catch (error) {
       patchStage('analyze', 'error')
@@ -180,15 +196,16 @@ function App() {
     patchStage('research', 'active')
     setMessage('Po kërkoj burime dhe po kontrolloj pretendimet...')
     try {
-      const claims = Array.isArray(analysis?.claims)
-        ? analysis.claims.map((claim) => (typeof claim === 'string' ? claim : JSON.stringify(claim)))
-        : []
       const result = await apiFetch<Record<string, unknown>>('/research/story', {
         method: 'POST',
-        body: JSON.stringify({ query: currentVideo.title, claims }),
+        body: JSON.stringify({
+          query: currentVideo.title,
+          claims: claims.map((claim) => (typeof claim === 'string' ? claim : JSON.stringify(claim))),
+        }),
       })
       setResearch(result)
       patchStage('research', 'done')
+      setSelectedStage('research')
       setMessage('Raporti i research dhe fact-check u kthye me sukses.')
     } catch (error) {
       patchStage('research', 'error')
@@ -204,6 +221,7 @@ function App() {
       const result = await apiFetch<{ candidates: RelatedItem[] }>(`/related/videos/${currentVideo.id}?limit=5`)
       setRelated(result.candidates)
       patchStage('related', 'done')
+      setSelectedStage('related')
       setMessage(`${result.candidates.length} sugjerime të rankuara.`)
     } catch (error) {
       patchStage('related', 'error')
@@ -218,6 +236,7 @@ function App() {
       const result = await apiFetch<Record<string, unknown>>('/learning/weights')
       setWeights(result)
       patchStage('learning', 'done')
+      setSelectedStage('learning')
       setMessage('Adaptive learning weights u ngarkuan.')
     } catch (error) {
       patchStage('learning', 'error')
@@ -231,7 +250,7 @@ function App() {
     if (selectedStage === 'research') return researchCurrent()
     if (selectedStage === 'related') return loadRelated()
     if (selectedStage === 'learning') return loadLearning()
-    setMessage(`${selected.title} është i lidhur me modelet e backend-it dhe do të shfaqet këtu pa shpikur të dhëna.`)
+    setMessage(`${selected.title} përdor të dhënat e ruajtura nga backend-i dhe nuk shfaqet pa rezultat real.`)
   }
 
   return (
@@ -243,14 +262,14 @@ function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <button className="nav-item active"><Home size={19} /> Dashboard</button>
-          <button className="nav-item"><Video size={19} /> YouTube Ingest</button>
-          <button className="nav-item"><BrainCircuit size={19} /> Story Intelligence</button>
-          <button className="nav-item"><Search size={19} /> Research & Fact-check</button>
-          <button className="nav-item"><Network size={19} /> Story Graph</button>
-          <button className="nav-item"><Link2 size={19} /> Related Videos</button>
-          <button className="nav-item"><BarChart3 size={19} /> Performance</button>
-          <button className="nav-item"><Sparkles size={19} /> Learning</button>
+          <button className="nav-item active" onClick={() => setSelectedStage('analyze')}><Home size={19} /> Dashboard</button>
+          <button className="nav-item" onClick={() => setSelectedStage('ingest')}><Video size={19} /> YouTube Ingest</button>
+          <button className="nav-item" onClick={() => setSelectedStage('analyze')}><BrainCircuit size={19} /> Story Intelligence</button>
+          <button className="nav-item" onClick={() => setSelectedStage('research')}><Search size={19} /> Research & Fact-check</button>
+          <button className="nav-item" onClick={() => setSelectedStage('graph')}><Network size={19} /> Story Graph</button>
+          <button className="nav-item" onClick={() => setSelectedStage('related')}><Link2 size={19} /> Related Videos</button>
+          <button className="nav-item" onClick={() => setSelectedStage('performance')}><BarChart3 size={19} /> Performance</button>
+          <button className="nav-item" onClick={() => setSelectedStage('learning')}><Sparkles size={19} /> Learning</button>
         </nav>
 
         <div className="sidebar-bottom">
@@ -267,10 +286,9 @@ function App() {
             <p>AI-powered workflow për të kthyer videot në histori më të mëdha.</p>
           </div>
           <div className="profile-area">
-            <div className={`api-pill ${health}`}><span /> API {health === 'online' ? 'Online' : health === 'offline' ? 'Offline' : 'Status'}</div>
+            <button className={`api-pill ${health}`} onClick={() => void checkHealth}><span /> API {health === 'online' ? 'Online' : health === 'offline' ? 'Offline' : 'Status'}</button>
             <div className="avatar">KX</div>
-            <div className="profile-copy"><strong>Krenar Xhafaj</strong><span>Admin</span></div>
-            <span className="chevron">⌄</span>
+            <div className="profile-copy"><strong>Admin</strong><span>Editorial workspace</span></div>
           </div>
         </header>
 
@@ -281,9 +299,7 @@ function App() {
               return (
                 <div key={stage.id} className="workflow-step-wrap">
                   <button className={`workflow-step ${selectedStage === stage.id ? 'selected' : ''}`} onClick={() => setSelectedStage(stage.id)}>
-                    <div className={`step-circle ${status}`}>
-                      {status === 'done' ? <Check size={16} /> : index + 1}
-                    </div>
+                    <div className={`step-circle ${status}`}>{status === 'done' ? <Check size={16} /> : index + 1}</div>
                     <strong>{stage.title}</strong>
                     <span>{stage.subtitle}</span>
                   </button>
@@ -294,18 +310,22 @@ function App() {
           </section>
 
           <section className="ingest-bar">
-            <div className="ingest-field channel-field">
+            <label className="ingest-field channel-field">
               <div className="youtube-badge"><Video size={20} /></div>
               <div><strong>{channel}</strong><span>Channel për të analizuar</span></div>
-            </div>
-            <div className="ingest-field">
+              <input aria-label="YouTube channel" value={channel} onChange={(event) => setChannel(event.target.value)} />
+            </label>
+            <label className="ingest-field compact-input">
               <div><strong>{limit}</strong><span>Numri i videove</span></div>
-            </div>
-            <button className="run-workflow" onClick={runIngest} disabled={running}>
+              <input aria-label="Number of videos" value={limit} onChange={(event) => setLimit(event.target.value)} inputMode="numeric" />
+            </label>
+            <button className="run-workflow" onClick={() => void runIngest()} disabled={running}>
               {running ? <RefreshCw className="spin" size={20} /> : <Play size={20} />}
               {running ? 'Po ekzekutohet...' : 'Run Workflow'}
             </button>
           </section>
+
+          <div className="workflow-message"><Activity size={15} /> {message}</div>
 
           <section className="status-strip">
             {stages.map((stage) => {
@@ -314,7 +334,7 @@ function App() {
               return (
                 <button key={stage.id} className={`status-card ${status}`} onClick={() => setSelectedStage(stage.id)}>
                   <div className="status-icon"><Icon size={18} /></div>
-                  <div><strong>{stage.title}</strong><span>{status === 'done' ? 'Përfunduar' : status === 'active' ? 'Në proces' : status === 'error' ? 'Gabim' : 'Në pritje'}</span><small>{stage.id === 'ingest' ? `${videos.length || 0} video të marra` : status === 'done' ? 'Gati për hapin tjetër' : 'Do të ekzekutohet'}</small></div>
+                  <div><strong>{stage.title}</strong><span>{status === 'done' ? 'Përfunduar' : status === 'active' ? 'Në proces' : status === 'error' ? 'Gabim' : 'Në pritje'}</span><small>{stage.id === 'ingest' ? `${videos.length || 0} video të marra` : status === 'done' ? 'Gati për hapin tjetër' : 'Ekzekutim manual'}</small></div>
                 </button>
               )
             })}
@@ -322,7 +342,7 @@ function App() {
 
           <section className="dashboard-grid">
             <div className="panel recent-panel">
-              <div className="panel-title-row"><div><h2>Videot e fundit nga YouTube</h2><span>Burimi i historisë së re</span></div><button className="text-link" onClick={() => void loadRecent()}>Shiko të gjitha →</button></div>
+              <div className="panel-title-row"><div><h2>Videot e fundit nga YouTube</h2><span>Burimi i historisë së re</span></div><button className="text-link" onClick={() => void loadRecent()}>Rifresko →</button></div>
               <div className="recent-list">
                 {videos.length === 0 && <div className="empty-soft"><Video size={20} /> Nuk ka video të ngarkuara. Ekzekuto Ingest.</div>}
                 {videos.slice(0, 5).map((video, index) => (
@@ -336,44 +356,77 @@ function App() {
 
             <div className="panel intelligence-panel">
               <div className="panel-title-row"><div><h2><BrainCircuit size={19} /> Story Intelligence <em>AI</em></h2><span>{currentVideo ? currentVideo.title : 'Zgjidh një video për analizë'}</span></div><span className="live-tag"><span /> {stageState.analyze === 'done' ? 'Gati' : stageState.analyze === 'active' ? 'Në proces' : 'Në pritje'}</span></div>
-              <div className="analysis-tabs"><span className="active">Përmbledhje</span><span>Pikat kryesore</span><span>Entitete</span><span>Tona & Emocion</span></div>
-              <div className="analysis-box">
-                <h3>Përmbledhje (AI)</h3>
-                <p>{typeof analysis?.summary === 'string' ? analysis.summary : currentVideo ? 'Kliko “Analizo story” për të gjeneruar përmbledhjen e strukturuar të historisë.' : 'Zgjidh një video nga lista për të nisur analizën.'}</p>
+              <div className="analysis-tabs">
+                {(['summary', 'claims', 'entities', 'emotion'] as AnalysisTab[]).map((tab) => <button key={tab} className={analysisTab === tab ? 'active' : ''} onClick={() => setAnalysisTab(tab)}>{tab === 'summary' ? 'Përmbledhje' : tab === 'claims' ? 'Pikat kryesore' : tab === 'entities' ? 'Entitete' : 'Tona & Emocion'}</button>)}
               </div>
-              <div className="analysis-metrics">
-                <div><span>Tema kryesore</span><strong>{Array.isArray(analysis?.topics) && analysis.topics.length ? String(analysis.topics[0]) : 'Në pritje'}</strong></div>
-                <div><span>Entitete kryesore</span><strong>{Array.isArray(analysis?.people) && analysis.people.length ? String(analysis.people[0]) : 'Në pritje'}</strong></div>
-                <div><span>Ndjeshmëria</span><strong className="neutral">Neutral</strong></div>
-                <div><span>Rëndësia për publikun</span><strong className="high">Në analizë</strong></div>
-              </div>
-              <button className="quote-box" onClick={() => { setSelectedStage('analyze'); void analyzeCurrent() }}><span>“</span>{typeof analysis?.summary === 'string' ? analysis.summary.slice(0, 145) : 'Run Story Intelligence për të gjetur thelbin, pyetjen dhe faktin që ndalon scroll-in.'}</button>
+
+              {analysisTab === 'summary' && (
+                <>
+                  <div className="analysis-box"><h3>Përmbledhje (AI)</h3><p>{typeof analysis?.summary === 'string' ? analysis.summary : currentVideo ? 'Kliko “Analizo story” për të gjeneruar përmbledhjen e strukturuar të historisë.' : 'Zgjidh një video nga lista për të nisur analizën.'}</p></div>
+                  <div className="analysis-metrics">
+                    <div><span>Kategoria</span><strong>{displayValue(analysis?.category)}</strong></div>
+                    <div><span>Tema kryesore</span><strong>{displayValue(topics[0])}</strong></div>
+                    <div><span>Persona</span><strong>{people.length || '0'}</strong></div>
+                    <div><span>Ngjarje</span><strong>{events.length || '0'}</strong></div>
+                  </div>
+                </>
+              )}
+
+              {analysisTab === 'claims' && <div className="insight-list">{claims.length ? claims.map((claim, index) => <div key={index} className="insight-list-row"><FileCheck2 size={16} /><span>{displayValue(claim)}</span></div>) : <div className="empty-soft">Nuk ka pretendime të strukturuara ende.</div>}</div>}
+
+              {analysisTab === 'entities' && (
+                <div className="entity-grid">
+                  <div><span>Persona</span>{people.length ? people.map((item, index) => <strong key={index}>{displayValue(item)}</strong>) : <small>Nuk ka të dhëna</small>}</div>
+                  <div><span>Organizata</span>{organizations.length ? organizations.map((item, index) => <strong key={index}>{displayValue(item)}</strong>) : <small>Nuk ka të dhëna</small>}</div>
+                  <div><span>Tema</span>{topics.length ? topics.map((item, index) => <strong key={index}>{displayValue(item)}</strong>) : <small>Nuk ka të dhëna</small>}</div>
+                </div>
+              )}
+
+              {analysisTab === 'emotion' && <div className="emotion-panel"><div><span>Trigger editorial</span><strong>{displayValue(analysis?.emotional_trigger, 'Përcaktohet nga analiza')}</strong></div><div><span>Pyetja e audiencës</span><strong>{displayValue(analysis?.audience_question, 'Përcaktohet nga analiza')}</strong></div><div><span>Fakt që ndalon scroll-in</span><strong>{displayValue(analysis?.scroll_stop_fact, 'Përcaktohet nga analiza')}</strong></div></div>}
+
+              <button className="quote-box" onClick={() => { setSelectedStage('analyze'); void analyzeCurrent() }}><span>“</span>{typeof analysis?.summary === 'string' ? analysis.summary.slice(0, 180) : 'Run Story Intelligence për të gjetur thelbin e historisë dhe faktin që mund të ndalojë scroll-in.'}</button>
               <button className="outline-button" onClick={() => { setSelectedStage('analyze'); void analyzeCurrent() }}>Analizo story →</button>
             </div>
 
             <div className="panel related-panel">
-              <div className="panel-title-row"><div><h2>Related Videos</h2><span>Top 5 sugjerime</span></div><Link2 size={18} /></div>
+              <div className="panel-title-row"><div><h2>Related Videos</h2><span>Top 5 sugjerime për videon aktuale</span></div><Link2 size={18} /></div>
               <div className="related-list">
                 {related.length === 0 && <div className="empty-soft"><GitBranch size={20} /> Zgjidh një video dhe ekzekuto Related Videos.</div>}
                 {related.slice(0, 5).map((item, index) => (
-                  <div className="related-row" key={item.video_id || index}>
+                  <button className="related-row" key={item.video_id || index} onClick={() => item.url && window.open(item.url, '_blank', 'noopener,noreferrer')}>
                     <div className={thumbnailClass(index + 2)}><Link2 size={17} /></div>
                     <div className="related-copy"><strong>{item.title || `Sugjerim ${index + 1}`}</strong><span>{item.relationship_type || 'Editorial relationship'}</span></div>
                     <div className="score-pill">{Number(item.score || 0).toFixed(2)}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
-              <button className="outline-button" onClick={() => { setSelectedStage('related'); void loadRelated() }}>Shiko më shumë sugjerime →</button>
+              <button className="outline-button" onClick={() => void loadRelated()}>Shiko më shumë sugjerime →</button>
+            </div>
+          </section>
+
+          <section className="inspector-grid">
+            <div className="panel inspector-panel">
+              <div className="panel-title-row"><div><h2>{selected.title}</h2><span>{selected.subtitle}</span></div><span className={`stage-badge ${stageState[selectedStage]}`}>{stageState[selectedStage]}</span></div>
+              <div className="inspector-toolbar">
+                <select value={selectedVideoId} onChange={(event) => setSelectedVideoId(event.target.value)}><option value="">Zgjidh një video</option>{videos.map((video) => <option key={video.id} value={video.id}>{video.title}</option>)}</select>
+                <button className="run-inspector" disabled={selectedStage !== 'learning' && !currentVideo} onClick={() => void runSelectedStage()}>{selectedStage === 'ingest' ? 'Ingest' : selectedStage === 'analyze' ? 'Analizo' : selectedStage === 'research' ? 'Fact-check' : selectedStage === 'related' ? 'Rank' : selectedStage === 'learning' ? 'Load weights' : 'Hap të dhënat'}</button>
+              </div>
+
+              {selectedStage === 'research' && <div className="research-summary"><div><strong>{arrayValue(research?.sources).length}</strong><span>burime</span></div><div><strong>{arrayValue(research?.findings).length}</strong><span>findings</span></div><div><strong>{displayValue(research?.status, 'Pa status')}</strong><span>status</span></div></div>}
+              {selectedStage === 'graph' && <div className="graph-preview"><div className="graph-node active-node">{currentVideo ? currentVideo.title.slice(0, 44) : 'Zgjidh video'}</div><div className="graph-links"><span>PERSON</span><span>TOPIC</span><span>EVENT</span><span>HISTORY</span></div><div className="graph-node">{analysis ? 'Story context i lidhur' : 'Analiza ende mungon'}</div></div>}
+              {selectedStage === 'performance' && <div className="empty-soft"><BarChart3 size={19} /> Performance API aktualisht pranon snapshot-et e YouTube; ky panel nuk shpik metrika pa një publication metric real.</div>}
+              {selectedStage === 'learning' && <pre className="json-view">{weights ? JSON.stringify(weights, null, 2) : 'Load weights për të parë peshat adaptive.'}</pre>}
+              {(selectedStage === 'ingest' || selectedStage === 'analyze' || selectedStage === 'related') && <div className="inspector-copy"><strong>{currentVideo?.title || 'Nuk ka video të zgjedhur'}</strong><p>{selectedStage === 'analyze' ? displayValue(analysis?.summary, 'Ekzekuto analizën për të parë përmbledhjen.') : selectedStage === 'related' ? `${related.length} lidhje të rankuara nga story graph dhe semantic index.` : `${videos.length} video janë të disponueshme në workspace.`}</p></div>}
             </div>
           </section>
 
           <section className="bottom-row">
-            <button className="bottom-card" onClick={() => setSelectedStage('performance')}><BarChart3 size={24} /><div><strong>Performance</strong><span>Analizë e performances së videove</span></div><span className="wait-pill">Në pritje</span></button>
-            <button className="bottom-card" onClick={() => { setSelectedStage('learning'); void loadLearning() }}><Sparkles size={24} /><div><strong>Learning</strong><span>Përshtatje automatike e algoritmit</span></div><span className="wait-pill">{weights ? 'Gati' : 'Në pritje'}</span></button>
+            <button className="bottom-card" onClick={() => setSelectedStage('performance')}><BarChart3 size={24} /><div><strong>Performance</strong><span>Analizë e performances së videove</span></div><span className="wait-pill">{stageState.performance === 'done' ? 'Gati' : 'Në pritje'}</span></button>
+            <button className="bottom-card" onClick={() => void loadLearning()}><Sparkles size={24} /><div><strong>Learning</strong><span>Përshtatje automatike e algoritmit</span></div><span className="wait-pill">{weights ? 'Gati' : 'Në pritje'}</span></button>
             <button className="bottom-card" onClick={() => setSelectedStage('graph')}><Network size={24} /><div><strong>Story Graph</strong><span>Lidhje me temat dhe ngjarjet</span></div><span className="wait-pill">{stageState.graph === 'done' ? 'Gati' : 'Në pritje'}</span></button>
           </section>
 
-          <div className="workspace-footer"><span>Lajme Prime – Story Intelligence</span><span>AI për lajme më të mira. Nga Shqipëria, për botën.</span><span>v1.0.0</span></div>
+          <div className="workspace-footer"><span>Lajme Prime – Story Intelligence</span><span>{currentVideo ? 'Video e zgjedhur · workflow gati për veprim' : 'Zgjidh një video për të filluar'}</span><span>v1.1.0</span></div>
         </main>
       </section>
     </div>
