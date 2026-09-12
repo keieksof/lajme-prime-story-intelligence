@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from app.db import SessionLocal
@@ -8,6 +9,7 @@ from app.ingestion.youtube import YouTubeClient
 from app.repositories.story_repository import StoryRepository
 from app.repositories.youtube_repository import YouTubeRepository
 from app.story_engine.analyzer import HeuristicStoryAnalyzer
+from app.story_engine.llm_analyzer import LLMStoryAnalyzer
 from app.story_engine.pipeline import StoryIntelligencePipeline
 
 
@@ -18,10 +20,17 @@ class IngestionResult:
     transcripts_fetched: int
 
 
+def _build_analyzer() -> HeuristicStoryAnalyzer | LLMStoryAnalyzer:
+    mode = os.getenv("STORY_ANALYZER", "heuristic").strip().lower()
+    if mode == "llm":
+        return LLMStoryAnalyzer()
+    return HeuristicStoryAnalyzer()
+
+
 async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> IngestionResult:
     client = YouTubeClient(api_key=api_key)
     videos = await client.list_uploads(channel, limit=limit)
-    pipeline = StoryIntelligencePipeline(HeuristicStoryAnalyzer())
+    pipeline = StoryIntelligencePipeline(_build_analyzer())
     transcript_fetcher = TranscriptFetcher()
 
     imported = 0
@@ -31,7 +40,10 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
     with SessionLocal() as session:
         video_repo = YouTubeRepository(session)
         story_repo = StoryRepository(session)
-        existing_rows = {row.external_id: row for row in video_repo.list_recent(limit=max(limit, 200))}
+        existing_rows = {
+            row.external_id: row
+            for row in video_repo.list_recent(limit=max(limit, 200))
+        }
 
         for video in videos:
             existing = existing_rows.get(video.external_id)
@@ -41,7 +53,9 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
                 if transcript:
                     transcripts_fetched += 1
 
-            analysis_text = "\n".join(value for value in (video.title, video.description, transcript) if value)
+            analysis_text = "\n".join(
+                value for value in (video.title, video.description, transcript) if value
+            )
             analysis = pipeline.process(
                 title=video.title,
                 text=analysis_text,
