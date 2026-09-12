@@ -11,6 +11,7 @@ from app.ingestion.youtube import YouTubeClient
 from app.models.domain import StoryAnalysis
 from app.repositories.story_repository import StoryRepository
 from app.repositories.youtube_repository import YouTubeRepository
+from app.services.embeddings import embed_missing_videos
 from app.story_engine.analyzer import HeuristicStoryAnalyzer
 from app.story_engine.llm_analyzer import LLMStoryAnalyzer
 from app.story_engine.pipeline import StoryIntelligencePipeline
@@ -21,6 +22,7 @@ class IngestionResult:
     imported: int
     updated: int
     transcripts_fetched: int
+    embeddings_created: int
     stories_created: int
     stories_reused: int
 
@@ -41,6 +43,7 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
     imported = 0
     updated = 0
     transcripts_fetched = 0
+    embeddings_created = 0
     stories_created = 0
     stories_reused = 0
 
@@ -51,6 +54,7 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
             row.external_id: row
             for row in video_repo.list_recent(limit=max(limit, 200))
         }
+        touched_rows = []
 
         for video in videos:
             existing = existing_rows.get(video.external_id)
@@ -79,11 +83,15 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
             row = video_repo.upsert_video(video, story_id=story.id)
             if transcript:
                 row.transcript = transcript
+            touched_rows.append(row)
 
             if existing is None:
                 imported += 1
             else:
                 updated += 1
+
+        if os.getenv("EMBEDDINGS_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}:
+            embeddings_created = embed_missing_videos(session, touched_rows)
 
         session.commit()
 
@@ -91,6 +99,7 @@ async def ingest_channel(api_key: str, channel: str, limit: int = 50) -> Ingesti
         imported=imported,
         updated=updated,
         transcripts_fetched=transcripts_fetched,
+        embeddings_created=embeddings_created,
         stories_created=stories_created,
         stories_reused=stories_reused,
     )
