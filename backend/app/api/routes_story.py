@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, HttpUrl
 
-from app.models.domain import StoryAnalysis
 from app.story_engine.analyzer import HeuristicStoryAnalyzer
 from app.story_engine.llm_analyzer import LLMStoryAnalyzer
 from app.story_engine.pipeline import StoryIntelligencePipeline
@@ -26,10 +26,13 @@ def _build_pipeline() -> StoryIntelligencePipeline:
 
 
 @router.post("/analyze")
-def analyze_story(request: AnalyzeStoryRequest) -> StoryAnalysis:
+def analyze_story(request: AnalyzeStoryRequest) -> dict[str, Any]:
     result = _build_pipeline().process(
         title=request.title,
         text=request.text,
         source_url=str(request.source_url) if request.source_url else None,
     )
-    return result.analysis
+    response = dict(result.analysis)
+    if result.research is not None:
+        response["research"] = result.research
+    return response
