@@ -8,7 +8,6 @@ import {
   Clock3,
   Database,
   GitBranch,
-  Network,
   Play,
   RefreshCw,
   Search,
@@ -33,7 +32,7 @@ const initialStages: Stage[] = [
   { id: 'ingest', title: 'Ingest', subtitle: 'YouTube source', icon: UploadCloud, status: 'idle' },
   { id: 'analyze', title: 'Story Intelligence', subtitle: 'Identify the real story', icon: BrainCircuit, status: 'idle' },
   { id: 'research', title: 'Research & Fact-check', subtitle: 'Verify claims and context', icon: Search, status: 'idle' },
-  { id: 'graph', title: 'Story Graph', subtitle: 'Connect story history', icon: Network, status: 'idle' },
+  { id: 'graph', title: 'Story Graph', subtitle: 'Connect story history', icon: GitBranch, status: 'idle' },
   { id: 'related', title: 'Related Videos', subtitle: 'Rank what comes next', icon: GitBranch, status: 'idle' },
   { id: 'performance', title: 'Performance', subtitle: 'Read publication signals', icon: TrendingUp, status: 'idle' },
   { id: 'learning', title: 'Learning', subtitle: 'Improve ranking weights', icon: Sparkles, status: 'idle' },
@@ -88,12 +87,7 @@ function App() {
       )
       setStage('ingest', 'done')
       setStage('analyze', 'done')
-      setMessage(`Imported ${result.imported} new videos, updated ${result.updated}. ${result.stories_created} new stories, ${result.stories_reused} reused.`)
-      ;['research', 'graph', 'related', 'performance', 'learning'].forEach((id) => setStage(id, 'active'))
-      setTimeout(() => {
-        ;['research', 'graph', 'related', 'performance', 'learning'].forEach((id) => setStage(id, 'done'))
-        setMessage('Workflow complete. Review the stages and open Related Videos for the next editorial decision.')
-      }, 600)
+      setMessage(`Ingest + story analysis complete. ${result.imported} new, ${result.updated} updated, ${result.stories_created} new stories.`)
     } catch (error) {
       setStage('ingest', 'error')
       setMessage(error instanceof Error ? error.message : 'Workflow failed.')
@@ -125,7 +119,7 @@ function App() {
         <section className="hero">
           <div className="eyebrow"><Sparkles size={14} /> Editorial command center</div>
           <h1>From a new upload to the next best story decision.</h1>
-          <p>Run the entire Lajme Prime intelligence loop from one screen, inspect every stage, and keep the reasoning explainable.</p>
+          <p>Run the Lajme Prime intelligence loop from one screen, inspect every stage, and keep the reasoning explainable.</p>
           <div className="control-card">
             <div className="control-field wide">
               <label>YouTube channel</label>
@@ -187,7 +181,7 @@ function App() {
               </div>
               <div className="explain-box">
                 <div className="explain-title"><BrainCircuit size={16} /> Explainability</div>
-                <p>The interface keeps each decision attached to a workflow stage, so the editor can see what happened before accepting the next step.</p>
+                <p>Only completed backend actions are marked as done. The remaining cards represent the next editorial stages and their supporting intelligence systems.</p>
               </div>
             </div>
           </div>
