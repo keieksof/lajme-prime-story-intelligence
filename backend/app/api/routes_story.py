@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, HttpUrl
 
 from app.db import SessionLocal
+from app.db_models import VideoRow
 from app.models.domain import StoryAnalysis
 from app.repositories.story_repository import StoryRepository
 from app.services.story_graph import StoryGraphService, serialize_graph_result
@@ -19,15 +21,29 @@ router = APIRouter(prefix="/stories", tags=["stories"])
 
 
 class AnalyzeStoryRequest(BaseModel):
-    title: str
-    text: str
+    title: str | None = None
+    text: str | None = None
     source_url: HttpUrl | None = None
+    video_id: UUID | None = None
 
 
 def _build_pipeline() -> StoryIntelligencePipeline:
     mode = os.getenv("STORY_ANALYZER", "heuristic").strip().lower()
     analyzer = LLMStoryAnalyzer() if mode == "llm" else HeuristicStoryAnalyzer()
     return StoryIntelligencePipeline(analyzer)
+
+
+def _resolve_request(request: AnalyzeStoryRequest) -> tuple[str, str, str | None]:
+    if request.video_id:
+        with SessionLocal() as session:
+            video = session.get(VideoRow, request.video_id)
+        if video is None:
+            raise HTTPException(status_code=404, detail="Video not found")
+        return video.title, f"{video.title}\n\n{video.description or ''}", video.url
+
+    if not request.title or request.text is None:
+        raise HTTPException(status_code=422, detail="Provide title/text or video_id")
+    return request.title, request.text, str(request.source_url) if request.source_url else None
 
 
 def _response_from_result(result: Any) -> dict[str, Any]:
@@ -47,21 +63,15 @@ def _analysis_from_result(result: Any) -> StoryAnalysis:
 
 @router.post("/analyze")
 def analyze_story(request: AnalyzeStoryRequest) -> dict[str, Any]:
-    result = _build_pipeline().process(
-        title=request.title,
-        text=request.text,
-        source_url=str(request.source_url) if request.source_url else None,
-    )
+    title, text, source_url = _resolve_request(request)
+    result = _build_pipeline().process(title=title, text=text, source_url=source_url)
     return _response_from_result(result)
 
 
 @router.post("/analyze-and-link")
 def analyze_and_link_story(request: AnalyzeStoryRequest) -> dict[str, Any]:
-    result = _build_pipeline().process(
-        title=request.title,
-        text=request.text,
-        source_url=str(request.source_url) if request.source_url else None,
-    )
+    title, text, source_url = _resolve_request(request)
+    result = _build_pipeline().process(title=title, text=text, source_url=source_url)
     analysis = _analysis_from_result(result)
     with SessionLocal() as session:
         graph_result = StoryGraphService(StoryRepository(session)).ingest(analysis)
