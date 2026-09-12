@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Mapping
 from uuid import UUID
 
 from app.db_models import VideoRow
@@ -52,6 +53,7 @@ def rank_related_videos(
     limit: int = 5,
     graph_relationships: dict[UUID, str] | None = None,
     semantic_similarities: dict[UUID, float] | None = None,
+    weights: Mapping[str, float] | None = None,
 ) -> list[RelatedVideoResult]:
     results: list[RelatedVideoResult] = []
     graph_relationships = graph_relationships or {}
@@ -89,7 +91,7 @@ def rank_related_videos(
             semantic_similarity=semantic_similarity,
             same_topic_only=max(min(1.0, lexical), graph_signals.same_topic_only),
         )
-        score = score_candidate(signals)
+        score = score_candidate(signals, weights=weights)
         relationship = graph_type or classify_relationship(signals)
 
         if signals.same_story == 0.0 and score < 25:
