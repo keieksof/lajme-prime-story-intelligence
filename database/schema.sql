@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS videos (
     UNIQUE(platform, external_id)
 );
 
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS embedding vector(1536);
+
 CREATE TABLE IF NOT EXISTS story_relationships (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     from_story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
@@ -189,11 +191,9 @@ CREATE INDEX IF NOT EXISTS idx_research_sources_report ON research_sources(repor
 CREATE INDEX IF NOT EXISTS idx_fact_check_report ON fact_check_findings(report_id);
 CREATE INDEX IF NOT EXISTS idx_videos_story ON videos(story_id);
 CREATE INDEX IF NOT EXISTS idx_videos_published_at ON videos(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_embedding ON videos USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX IF NOT EXISTS idx_story_relationships_from ON story_relationships(from_story_id);
 CREATE INDEX IF NOT EXISTS idx_story_relationships_to ON story_relationships(to_story_id);
 CREATE INDEX IF NOT EXISTS idx_video_relationships_current ON video_relationships(current_video_id, score DESC);
 CREATE INDEX IF NOT EXISTS idx_performance_publication_time ON performance_metrics(publication_id, captured_at DESC);
 CREATE INDEX IF NOT EXISTS idx_learning_feature ON learning_signals(feature_key, created_at DESC);
-
--- Vector index can be added after the first meaningful corpus exists.
--- CREATE INDEX idx_videos_embedding ON videos USING hnsw (embedding vector_cosine_ops);
