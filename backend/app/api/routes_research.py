@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.research.models import ResearchReport
 from app.research.service import research_story
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/research", tags=["research"])
 
 class ResearchStoryRequest(BaseModel):
     query: str
-    claims: list[str] = []
+    claims: list[str] = Field(default_factory=list)
 
 
 @router.post("/story")
