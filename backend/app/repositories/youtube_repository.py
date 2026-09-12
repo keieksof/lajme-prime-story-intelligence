@@ -34,12 +34,15 @@ class YouTubeRepository:
             )
             self.session.add(row)
         else:
+            content_changed = row.title != video.title or row.description != video.description
             row.url = video.url
             row.title = video.title
             row.description = video.description
             row.published_at = video.published_at
             row.duration_seconds = video.duration_seconds
             row.metadata_json = video.raw
+            if content_changed:
+                row.embedding = None
             if story_id:
                 row.story_id = story_id
         self.session.flush()
